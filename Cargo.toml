@@ -1,0 +1,14 @@
+[package]
+name = "fanservice"
+version = "0.1.0"
+authors = ["Bram Buurlage <brambuurlage@gmail.com>"]
+edition = "2018"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+hidapi = "1.2.5"
+rand = "0.8"
+serde = { version = "1", features = ["derive"] }
+ron = "0.6"
+anyhow = "1"

@@ -1,0 +1,94 @@
+Config (
+    color_profiles: [
+        (
+            name: "Default",
+            triggers: [],
+            strip_profiles: [
+                (device: "Commander PRO", channel: 0, indices: Range(0, 12), effect: Gradient(
+                    from: Hsv(0, 1, 1),
+                    to: Hsv(120, 0.7, 1),
+                )),
+                (device: "Commander PRO", channel: 0, indices: Range(0, 12), effect: Wave(
+                    frames_per_led: 1,
+                    length: 50,
+                    colors: [Hsv(0, 0, 0), Hsv(180, 1, 0)],
+                    op: Add(1),
+                )),
+                (device: "Commander PRO", channel: 1, indices: Range(0, 12), effect: Temperature(
+                    min_color: Hsv(240, 0.9, 0.4),
+                    max_color: Hsv(0, 1, 1),
+                    min_temperature: 28.0,
+                    max_temperature: 34.0,
+                    sensor: 0,
+                )),
+                (device: "Commander PRO", channel: 1, indices: Range(0, 12), effect: Gradient(
+                    from: Hsv(0, 0, 0),
+                    to: Hsv(90, 0, 0),
+                    op: Add(1),
+                )),
+                (device: "Lighting Node CORE", channel: 0, indices: Ranges([(10, 34), (44, 68), (78, 102)]), effect: Temperature(
+                    min_color: Hsv(240, 0.9, 0.4),
+                    max_color: Hsv(0, 1, 1),
+                    min_temperature: 28.0,
+                    max_temperature: 34.0,
+                    sensor: 0,
+                )),
+                (device: "Lighting Node CORE", channel: 0, indices: Ranges([(0, 10), (34, 44), (68, 78)]), effect: Static(color: Rgb(0.2, 0.2, 0.2))),
+                (device: "Lighting Node CORE", channel: 0, indices: Range(10, 22), effect: Rotation(frames_per_led: 2, colors: [Hsv(240, 0, 0), Hsv(270, 0, 0)], op: Add(1))),
+                (device: "Lighting Node CORE", channel: 0, indices: Range(22, 34), effect: Rotation(frames_per_led: 2, colors: [Hsv(270, 0, 0), Hsv(240, 0, 0)], op: Add(1))),
+                (device: "Lighting Node CORE", channel: 0, indices: Range(44, 56), effect: Rotation(frames_per_led: 2, colors: [Hsv(240, 0, 0), Hsv(270, 0, 0)], op: Add(1))),
+                (device: "Lighting Node CORE", channel: 0, indices: Range(56, 68), effect: Rotation(frames_per_led: 2, colors: [Hsv(270, 0, 0), Hsv(240, 0, 0)], op: Add(1))),
+                (device: "Lighting Node CORE", channel: 0, indices: Range(78, 90), effect: Rotation(frames_per_led: 2, colors: [Hsv(240, 0, 0), Hsv(270, 0, 0)], op: Add(1))),
+                (device: "Lighting Node CORE", channel: 0, indices: Range(90, 102), effect: Rotation(frames_per_led: 2, colors: [Hsv(270, 0, 0), Hsv(240, 0, 0)], op: Add(1))),
+            ]
+        ),
+        (
+            name: "Load",
+            triggers: [SensorAbove(sensor: 0, temperature: 34)],
+            transient: true,
+            strip_profiles: [
+                (device: "Commander PRO", channel: 1, indices: Range(0, 12), effect: Temperature(
+                    min_color: Hsv(240, 1, 1),
+                    max_color: Hsv(0, 1, 1),
+                    min_temperature: 34.0,
+                    max_temperature: 45.0,
+                    sensor: 0,
+                )),
+                (device: "Commander PRO", channel: 1, indices: Specific([0, 1, 4, 5, 8, 9]), effect: Static(
+                    color: Hsv(90, 0, 0),
+                    op: Add(1),
+                )),
+            ]
+        )
+    ],
+    fan_profiles: [
+        (
+            name: "Silent",
+            triggers: [
+                SensorBelow(sensor: 0, temperature: 32.0)
+            ],
+            fans: [
+                (device: "Commander PRO", channel: 1, config: Pwm(0.20)), // case fans
+                (device: "Commander PRO", channel: 2, config: Pwm(0.25)), // pump
+                (device: "Commander PRO", channel: 3, config: Pwm(0.30)), // top rad fans
+                (device: "Commander PRO", channel: 4, config: Pwm(0)), // bottom rad fan 1
+                (device: "Commander PRO", channel: 5, config: Pwm(0)), // bottom rad fan 2
+            ]
+        ),
+        (
+            name: "Heavy load",
+            triggers: [
+                SensorAbove(sensor: 0, temperature: 34.0)
+            ],
+            fans: [
+                (device: "Commander PRO", channel: 1, config: Pwm(0.50)), // case fans
+                (device: "Commander PRO", channel: 2, config: Pwm(1.00)), // pump
+
+                // radiator fans
+                (device: "Commander PRO", channel: 3, config: Curve(0, ((temp: 28, rpm: 750), (temp: 33, rpm: 905), (temp: 40, rpm: 1120), (temp: 46, rpm: 1600), (temp: 52, rpm: 3000), (temp: 53, rpm: 3000)))),
+                (device: "Commander PRO", channel: 4, config: Curve(0, ((temp: 28, rpm: 750), (temp: 33, rpm: 905), (temp: 40, rpm: 1120), (temp: 46, rpm: 1600), (temp: 52, rpm: 3000), (temp: 53, rpm: 3000)))),
+                (device: "Commander PRO", channel: 5, config: Curve(0, ((temp: 28, rpm: 750), (temp: 33, rpm: 905), (temp: 40, rpm: 1120), (temp: 46, rpm: 1600), (temp: 52, rpm: 3000), (temp: 53, rpm: 3000)))),
+            ]
+        )
+    ],
+)
