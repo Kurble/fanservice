@@ -122,6 +122,7 @@ impl ProfileManager {
                     println!("Unable to re-initialize {}: {}", device.name(), e);
                 }
             }
+            std::thread::sleep(std::time::Duration::from_millis(50));
             self.last_update = Instant::now();
         }
 

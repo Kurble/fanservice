@@ -1,0 +1,5 @@
+Gradient(
+    from: Hsv(0, 0, 0),
+    to: Hsv(90, 0, 0),
+    op: Add(1),
+)

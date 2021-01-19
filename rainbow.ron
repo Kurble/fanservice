@@ -1,0 +1,8 @@
+Rotation(
+    frames_per_led: 2,
+    colors: [
+        Rgb(1,1,1),
+        Rgb(0,0,0),
+    ],
+    op: Add(1)
+)

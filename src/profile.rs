@@ -1,4 +1,4 @@
-use serde::Deserialize;
+use serde::{Deserialize, Deserializer};
 
 use crate::device::{Fan, Strip};
 use crate::effect::Effect;
@@ -37,6 +37,7 @@ pub struct StripConfig {
     pub device: String,
     pub channel: usize,
     pub indices: Indices,
+    #[serde(deserialize_with="deserialize_from_maybe_file")]
     pub effect: Effect,
 }
 
@@ -110,4 +111,10 @@ impl StripConfig {
     pub fn apply(&self, strip: &mut Strip, probes: &[Option<f32>], frame: usize) {
         self.effect.apply(strip, probes, self.indices.indices(), frame);
     }
+}
+
+fn deserialize_from_maybe_file<'de, T: for<'a> Deserialize<'a>, D>(de: D) -> Result<T, D::Error> where D: Deserializer<'de> {
+    let path = String::deserialize(de)?;
+    let result: T = ron::from_str(std::fs::read_to_string(path).unwrap().as_str()).unwrap();
+    Ok(result)
 }

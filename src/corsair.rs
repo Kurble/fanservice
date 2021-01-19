@@ -1,5 +1,6 @@
 #![allow(unused)]
 
+use std::cell::Cell;
 use std::time::Instant;
 
 use anyhow::*;
@@ -7,6 +8,7 @@ use hidapi::{HidDevice, HidResult};
 
 use crate::color::Color;
 use crate::device::{Device, Fan, Strip};
+use std::ops::AddAssign;
 
 pub struct CorsairLighting {
     name: String,
@@ -18,7 +20,8 @@ pub struct CorsairLighting {
     probes: Vec<Option<f32>>,
     fan_modes: Vec<FanMode>,
     rpms: Vec<u16>,
-    last_sample: Instant,
+    next_sample: usize,
+    backlog: Cell<usize>,
 }
 
 #[derive(Clone, Debug)]
@@ -76,7 +79,8 @@ impl CorsairLighting {
             probes: vec![None; 4],
             fan_modes: vec![FanMode::Off; 6],
             rpms: vec![0; 6],
-            last_sample: Instant::now(),
+            next_sample: 0,
+            backlog: Cell::new(0),
         }
     }
 
@@ -93,37 +97,48 @@ impl CorsairLighting {
             probes: vec![],
             fan_modes: vec![],
             rpms: vec![],
-            last_sample: Instant::now(),
+            next_sample: 0,
+            backlog: Cell::new(0),
         }
     }
 
     fn get_temp(&self, index: usize) -> HidResult<f32> {
-        let res = self.send_command(CMD_GET_TEMP, &[index as u8])?;
+        let res = self.request(CMD_GET_TEMP, &[index as u8])?;
         Ok(res[1] as f32 * 2.56 + res[2] as f32 * 0.01)
     }
 
     fn get_rpm(&self, index: usize) -> HidResult<u16> {
-        let res = self.send_command(CMD_GET_FAN_RPM, &[index as u8])?;
+        let res = self.request(CMD_GET_FAN_RPM, &[index as u8])?;
         Ok(res[1] as u16 * 256 + res[2] as u16)
     }
 
-    fn send_command(&self, command: u8, data: &[u8]) -> HidResult<[u8; RESPONSE_LENGTH]> {
+    fn send(&self, command: u8, data: &[u8]) -> HidResult<()> {
+        let mut buf = [0u8; REPORT_LENGTH];
+        buf[1] = command;
+        buf[2..2 + data.len()].copy_from_slice(data);
+        self.device.write(&buf)?;
+        Ok(())
+    }
+
+    fn request(&self, command: u8, data: &[u8]) -> HidResult<[u8; RESPONSE_LENGTH]> {
         let mut buf = [0u8; REPORT_LENGTH];
         buf[1] = command;
         buf[2..2 + data.len()].copy_from_slice(data);
         self.device.write(&buf)?;
 
         let mut response = [0u8; RESPONSE_LENGTH];
-        self.device.read_timeout(&mut response, 2000)?;
-
-        Ok(response)
+        if self.device.read(&mut response)? > 0 {
+            Ok(response)
+        } else {
+            Ok(response)
+        }
     }
 
     fn update_fans(&self) -> HidResult<()> {
         for (i, fan) in self.fans.iter().enumerate() {
             match fan {
                 Fan::Pwm(duty) => {
-                    self.send_command(
+                    self.send(
                         CMD_SET_FAN_DUTY,
                         &[i as u8, (duty * 100.0).min(100.0).max(0.0) as u8],
                     )?;
@@ -142,7 +157,7 @@ impl CorsairLighting {
                         buf[15 + j*2] = rpm_lo as u8;
                     }
 
-                    self.send_command(CMD_SET_FAN_PROFILE, &buf)?;
+                    self.send(CMD_SET_FAN_PROFILE, &buf)?;
                 }
                 Fan::Curve(sensor, curve) => {
                     let mut buf = [0; 32];
@@ -161,7 +176,7 @@ impl CorsairLighting {
                         buf[15 + j*2] = rpm_lo as u8;
                     }
 
-                    self.send_command(CMD_SET_FAN_PROFILE, &buf)?;
+                    self.send(CMD_SET_FAN_PROFILE, &buf)?;
                 }
             }
         }
@@ -177,7 +192,7 @@ impl CorsairLighting {
                 continue;
             }
 
-            self.send_command(CMD_SET_LED_CHANNEL_STATE, &[channel, LED_PORT_STATE_SOFTWARE])?;
+            self.send(CMD_SET_LED_CHANNEL_STATE, &[channel, LED_PORT_STATE_SOFTWARE])?;
 
             let mut start_led = 0;
             for chunk in strip.colors.chunks(50) {
@@ -191,13 +206,13 @@ impl CorsairLighting {
                     for j in 0..chunk.len() {
                         buf[4 + j] = (chunk[j].rgb()[i] * 255.0) as u8;
                     }
-                    self.send_command(CMD_LED_DIRECT, &buf)?;
+                    self.send(CMD_LED_DIRECT, &buf)?;
                 }
 
                 start_led += chunk.len() as u8;
             }
 
-            self.send_command(CMD_LED_COMMIT, &[channel])?;
+            self.send(CMD_LED_COMMIT, &[channel])?;
         }
 
         Ok(())
@@ -206,11 +221,11 @@ impl CorsairLighting {
 
 impl Device for CorsairLighting {
     fn initialize(&mut self) -> Result<()> {
-        let [ma, mi, p, ..] = self.send_command(CMD_GET_FIRMWARE, &[])?;
-        let [bma, bmi, ..] = self.send_command(CMD_GET_BOOTLOADER, &[])?;
+        let [ma, mi, p, ..] = self.request(CMD_GET_FIRMWARE, &[])?;
+        let [bma, bmi, ..] = self.request(CMD_GET_BOOTLOADER, &[])?;
 
         if !self.probes.is_empty() {
-            let probes_config = self.send_command(CMD_GET_TEMP_CONFIG, &[])?;
+            let probes_config = self.request(CMD_GET_TEMP_CONFIG, &[])?;
             for i in 0..self.probes.len() {
                 if probes_config[i + 1] > 0 {
                     let temp = self.get_temp(i)?;
@@ -220,7 +235,7 @@ impl Device for CorsairLighting {
         }
 
         if !self.fans.is_empty() {
-            let fan_modes = self.send_command(CMD_GET_FAN_MODES, &[])?;
+            let fan_modes = self.request(CMD_GET_FAN_MODES, &[])?;
             for i in 0..self.fans.len() {
                 self.fan_modes[i] = match fan_modes[i + 1] {
                     FAN_MODE_DISCONNECTED => FanMode::Off,
@@ -232,10 +247,10 @@ impl Device for CorsairLighting {
         }
 
         for i in 0..self.strips.len() as u8 {
-            self.send_command(CMD_RESET_LED_CHANNEL, &[i])?;
-            self.send_command(CMD_BEGIN_LED_EFFECT, &[i])?;
-            self.send_command(CMD_SET_LED_CHANNEL_STATE, &[i, LED_PORT_STATE_HARDWARE])?;
-            self.send_command(CMD_LED_EFFECT, &[
+            self.send(CMD_RESET_LED_CHANNEL, &[i])?;
+            self.send(CMD_BEGIN_LED_EFFECT, &[i])?;
+            self.send(CMD_SET_LED_CHANNEL_STATE, &[i, LED_PORT_STATE_HARDWARE])?;
+            self.send(CMD_LED_EFFECT, &[
                 i,
                 0,
                 204,
@@ -245,7 +260,7 @@ impl Device for CorsairLighting {
                 0x01,
                 0xff,
             ])?;
-            self.send_command(CMD_LED_COMMIT, &[i])?;
+            self.send(CMD_LED_COMMIT, &[i])?;
         }
 
         println!("{}: \n FW version {}.{}.{} \n Bootloader version {}.{} \n Temperature: {:?} \n Fan modes: {:?}", self.name, ma, mi, p, bma, bmi, self.probes, self.fan_modes);
@@ -275,6 +290,43 @@ impl Device for CorsairLighting {
     }
 
     fn update(&mut self) -> Result<()> {
+        let mut current_sample = 0;
+
+        // flush the input stream
+        self.device.set_blocking_mode(false);
+        while self.device.read(&mut [0; RESPONSE_LENGTH])? > 0 {}
+        self.device.set_blocking_mode(true);
+
+        for i in 0..self.probes.len() {
+            if self.probes[i].is_some() {
+                if current_sample == self.next_sample {
+                    let temp = self.get_temp(i)?;
+                    if temp > 0.0 {
+                        self.probes[i].replace(temp);
+                    } else {
+                        self.probes[i].replace(100.0);
+                    }
+                }
+                current_sample += 1;
+            }
+        }
+
+        for i in 0..self.fans.len() {
+            match &self.fan_modes[i] {
+                FanMode::Pwm | FanMode::Dc => {
+                    if current_sample == self.next_sample {
+                        self.rpms[i] = self.get_rpm(i)?;
+                    }
+                    current_sample += 1;
+                },
+                FanMode::Off => self.rpms[i] = 0,
+            }
+        }
+
+        if current_sample > 0 {
+            self.next_sample = (self.next_sample + 1) % current_sample;
+        }
+
         if self.fans_dirty {
             self.update_fans()?;
             self.fans_dirty = false;
@@ -283,28 +335,6 @@ impl Device for CorsairLighting {
         if self.strips_dirty {
             self.update_strips()?;
             self.strips_dirty = false;
-        }
-
-        if self.last_sample.elapsed().as_secs_f32() > 0.5 {
-            self.last_sample = Instant::now();
-
-            for i in 0..self.probes.len() {
-                if self.probes[i].is_some() {
-                    let temp = self.get_temp(i)?;
-                    if temp > 0.0 {
-                        self.probes[i].replace(temp);
-                    } else {
-                        self.probes[i].replace(100.0);
-                    }
-                }
-            }
-
-            for i in 0..self.fans.len() {
-                self.rpms[i] = match &self.fan_modes[i] {
-                    FanMode::Pwm | FanMode::Dc => self.get_rpm(i)?,
-                    FanMode::Off => 0,
-                }
-            }
         }
 
         Ok(())
