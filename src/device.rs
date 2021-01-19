@@ -24,6 +24,8 @@ pub struct Strip {
 pub trait Device {
     fn initialize(&mut self) -> Result<()>;
 
+    fn is_led_only(&self) -> bool;
+
     fn name(&self) -> &str;
 
     fn fans(&mut self) -> &mut [Fan];
@@ -31,6 +33,8 @@ pub trait Device {
     fn strips(&mut self) -> &mut [Strip];
 
     fn probes(&self) -> &[Option<f32>];
+
+    fn report_status(&self);
 
     fn update(&mut self) -> Result<()>;
 }

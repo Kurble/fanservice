@@ -1,4 +1,4 @@
-use std::time::Instant;
+use std::time::{Duration, Instant};
 
 use crate::device::Device;
 use crate::profile::{ColorProfile, Config, FanProfile, Trigger};
@@ -12,6 +12,7 @@ pub struct ProfileManager {
     frame: usize,
     probes: Vec<Option<f32>>,
     last_update: Instant,
+    last_log: Instant,
 }
 
 impl ProfileManager {
@@ -29,6 +30,7 @@ impl ProfileManager {
             frame: 0,
             probes: vec![],
             last_update: Instant::now(),
+            last_log: Instant::now(),
         }
     }
 
@@ -51,7 +53,10 @@ impl ProfileManager {
             || self.color_profiles[next_color_profile.unwrap()].is_animated()
         {
             if next_color_profile != self.color_profile_current {
-                println!("Activating color profile: {}", self.color_profiles[next_color_profile.unwrap()].name);
+                log::info!(
+                    "Activating color profile: {}",
+                    self.color_profiles[next_color_profile.unwrap()].name
+                );
             }
             self.color_profile_current = next_color_profile;
 
@@ -97,7 +102,10 @@ impl ProfileManager {
         }
 
         if next_fan_profile != self.fan_profile_current {
-            println!("Activating fan profile: {}", self.fan_profiles[next_fan_profile.unwrap()].name);
+            log::info!(
+                "Activating fan profile: {}",
+                self.fan_profiles[next_fan_profile.unwrap()].name
+            );
             self.fan_profile_current = next_fan_profile;
 
             // apply fan profile
@@ -115,11 +123,11 @@ impl ProfileManager {
         // reset all devices if the loop is somehow taking longer than expected (did the system sleep?)
         let elapsed = std::mem::replace(&mut self.last_update, Instant::now()).elapsed();
         if elapsed.as_secs_f32() > 2.0 {
-            println!("Recovering from system sleep");
+            log::warn!("Recovering from system sleep");
             std::thread::sleep(std::time::Duration::from_secs(5));
             for device in self.devices.iter_mut() {
                 if let Err(e) = device.initialize() {
-                    println!("Unable to re-initialize {}: {}", device.name(), e);
+                    log::error!("Unable to re-initialize {}: {}", device.name(), e);
                 }
             }
             std::thread::sleep(std::time::Duration::from_millis(50));
@@ -129,9 +137,18 @@ impl ProfileManager {
         self.probes.clear();
         for device in self.devices.iter_mut() {
             if let Err(e) = device.update() {
-                println!("Unable to update {}: {}", device.name(), e);
+                log::error!("Unable to update {}: {}", device.name(), e);
             }
             self.probes.extend_from_slice(device.probes());
+        }
+
+        if self.last_log.elapsed() > Duration::from_secs(10) {
+            self.last_log = Instant::now();
+            for device in self.devices.iter() {
+                if !device.is_led_only() {
+                    device.report_status();
+                }
+            }
         }
     }
 
@@ -140,11 +157,21 @@ impl ProfileManager {
             &Trigger::SensorAbove {
                 sensor,
                 temperature,
-            } => self.probes.get(sensor).unwrap_or(&None).map(|val| val > temperature).unwrap_or_default(),
+            } => self
+                .probes
+                .get(sensor)
+                .unwrap_or(&None)
+                .map(|val| val > temperature)
+                .unwrap_or_default(),
             &Trigger::SensorBelow {
                 sensor,
                 temperature,
-            } => self.probes.get(sensor).unwrap_or(&None).map(|val| val < temperature).unwrap_or_default(),
+            } => self
+                .probes
+                .get(sensor)
+                .unwrap_or(&None)
+                .map(|val| val < temperature)
+                .unwrap_or_default(),
             &Trigger::ProcessRunning { name: _ } => false,
         }
     }

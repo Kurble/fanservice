@@ -71,10 +71,7 @@ impl CorsairLighting {
             device,
             fans: vec![Fan::Pwm(0.25); 6],
             fans_dirty: true,
-            strips: vec![
-                Strip { colors: Vec::new() },
-                Strip { colors: Vec::new() },
-            ],
+            strips: vec![Strip { colors: Vec::new() }, Strip { colors: Vec::new() }],
             strips_dirty: true,
             probes: vec![None; 4],
             fan_modes: vec![FanMode::Off; 6],
@@ -90,9 +87,7 @@ impl CorsairLighting {
             device,
             fans: vec![],
             fans_dirty: true,
-            strips: vec![
-                Strip { colors: Vec::new() },
-            ],
+            strips: vec![Strip { colors: Vec::new() }],
             strips_dirty: true,
             probes: vec![],
             fan_modes: vec![],
@@ -151,10 +146,10 @@ impl CorsairLighting {
                     buf[0] = i as u8;
                     buf[1] = 0; // sensor 1, doesn't matter much
                     for j in 0..6 {
-                        buf[2 + j*2] = 0;
-                        buf[3 + j*2] = 0;
-                        buf[14 + j*2] = rpm_hi as u8;
-                        buf[15 + j*2] = rpm_lo as u8;
+                        buf[2 + j * 2] = 0;
+                        buf[3 + j * 2] = 0;
+                        buf[14 + j * 2] = rpm_hi as u8;
+                        buf[15 + j * 2] = rpm_lo as u8;
                     }
 
                     self.send(CMD_SET_FAN_PROFILE, &buf)?;
@@ -170,10 +165,10 @@ impl CorsairLighting {
                         let temp_lo = (curve[j].temp * 100.0) as u16 & 0xff;
                         let temp_hi = ((curve[j].temp * 100.0) as u16 & 0xff00) >> 8;
 
-                        buf[2 + j*2] = temp_hi as u8;
-                        buf[3 + j*2] = temp_lo as u8;
-                        buf[14 + j*2] = rpm_hi as u8;
-                        buf[15 + j*2] = rpm_lo as u8;
+                        buf[2 + j * 2] = temp_hi as u8;
+                        buf[3 + j * 2] = temp_lo as u8;
+                        buf[14 + j * 2] = rpm_hi as u8;
+                        buf[15 + j * 2] = rpm_lo as u8;
                     }
 
                     self.send(CMD_SET_FAN_PROFILE, &buf)?;
@@ -192,7 +187,10 @@ impl CorsairLighting {
                 continue;
             }
 
-            self.send(CMD_SET_LED_CHANNEL_STATE, &[channel, LED_PORT_STATE_SOFTWARE])?;
+            self.send(
+                CMD_SET_LED_CHANNEL_STATE,
+                &[channel, LED_PORT_STATE_SOFTWARE],
+            )?;
 
             let mut start_led = 0;
             for chunk in strip.colors.chunks(50) {
@@ -250,25 +248,32 @@ impl Device for CorsairLighting {
             self.send(CMD_RESET_LED_CHANNEL, &[i])?;
             self.send(CMD_BEGIN_LED_EFFECT, &[i])?;
             self.send(CMD_SET_LED_CHANNEL_STATE, &[i, LED_PORT_STATE_HARDWARE])?;
-            self.send(CMD_LED_EFFECT, &[
-                i,
-                0,
-                204,
-                0x06,
-                LED_SPEED_MEDIUM,
-                LED_DIRECTION_FORWARD,
-                0x01,
-                0xff,
-            ])?;
+            self.send(
+                CMD_LED_EFFECT,
+                &[
+                    i,
+                    0,
+                    204,
+                    0x06,
+                    LED_SPEED_MEDIUM,
+                    LED_DIRECTION_FORWARD,
+                    0x01,
+                    0xff,
+                ],
+            )?;
             self.send(CMD_LED_COMMIT, &[i])?;
         }
 
-        println!("{}: \n FW version {}.{}.{} \n Bootloader version {}.{} \n Temperature: {:?} \n Fan modes: {:?}", self.name, ma, mi, p, bma, bmi, self.probes, self.fan_modes);
+        log::info!("{}: \n FW version {}.{}.{} \n Bootloader version {}.{} \n Temperature: {:?} \n Fan modes: {:?}", self.name, ma, mi, p, bma, bmi, self.probes, self.fan_modes);
 
         self.fans_dirty = true;
         self.strips_dirty = true;
 
         Ok(())
+    }
+
+    fn is_led_only(&self) -> bool {
+        self.fans.is_empty() && self.probes.is_empty()
     }
 
     fn name(&self) -> &str {
@@ -287,6 +292,15 @@ impl Device for CorsairLighting {
 
     fn probes(&self) -> &[Option<f32>] {
         &self.probes
+    }
+
+    fn report_status(&self) {
+        log::info!(
+            target: format!("{} status", self.name).as_str(),
+            "temperatures = {:?}, fan speeds = {:?}",
+            self.probes,
+            self.rpms
+        )
     }
 
     fn update(&mut self) -> Result<()> {
@@ -318,7 +332,7 @@ impl Device for CorsairLighting {
                         self.rpms[i] = self.get_rpm(i)?;
                     }
                     current_sample += 1;
-                },
+                }
                 FanMode::Off => self.rpms[i] = 0,
             }
         }
