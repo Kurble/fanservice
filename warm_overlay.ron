@@ -1,0 +1,9 @@
+Rotation(
+    duration: 40,
+    colors: [
+        Hsv(0, 0, 0),
+        Hsv(90, -0.3, 0),
+        Hsv(0, 0, 0),
+    ],
+    op: Add(1)
+)

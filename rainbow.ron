@@ -1,8 +1,9 @@
 Rotation(
-    frames_per_led: 2,
+    duration: 80,
     colors: [
-        Rgb(1,1,1),
-        Rgb(0,0,0),
+        Hsv(0,1,0.4),
+        Hsv(360,1,0.4),
     ],
-    op: Add(1)
+    reverse: true,
+    op: Blend(1)
 )

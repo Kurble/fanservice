@@ -35,7 +35,16 @@ pub enum Effect {
         op: ColorOp,
     },
     Rotation {
-        frames_per_led: usize,
+        duration: usize,
+        colors: Vec<Color>,
+        #[serde(default)]
+        reverse: bool,
+        #[serde(default)]
+        op: ColorOp,
+    },
+    Pattern {
+        #[serde(default)]
+        frames_per_led: Option<usize>,
         colors: Vec<Color>,
         #[serde(default)]
         reverse: bool,
@@ -97,7 +106,11 @@ impl Effect {
                 ref max_color,
                 ref op,
             } => {
-                let temp = probes.get(sensor).cloned().unwrap_or_default().unwrap_or(max_temperature);
+                let temp = probes
+                    .get(sensor)
+                    .cloned()
+                    .unwrap_or_default()
+                    .unwrap_or(max_temperature);
                 let range = max_temperature - min_temperature;
                 let x = (temp.min(max_temperature) - min_temperature).max(0.0) / range;
                 let color = min_color.blend(max_color, &ColorOp::Blend(x));
@@ -105,7 +118,12 @@ impl Effect {
                     strip.colors[led] = strip.colors[led].blend(&color, op);
                 }
             }
-            &Effect::Wave { frames_per_led, length, ref colors, ref op } => {
+            &Effect::Wave {
+                frames_per_led,
+                length,
+                ref colors,
+                ref op,
+            } => {
                 let progress = (frame / frames_per_led) % (indices.len() + length * 2);
                 for i in 0..length {
                     if progress + i >= length {
@@ -113,24 +131,54 @@ impl Effect {
                             let x = (i as f32 / length as f32) * colors.len() as f32;
                             let lower = (x.floor() as usize).min(colors.len() - 1);
                             let upper = (x.ceil() as usize).min(colors.len() - 1);
-                            let color = colors[lower].blend(&colors[upper], &ColorOp::Blend(x.fract()));
+                            let color =
+                                colors[lower].blend(&colors[upper], &ColorOp::Blend(x.fract()));
                             strip.colors[led] = strip.colors[led].blend(&color, op);
                         }
                     }
                 }
             }
-            &Effect::Rotation { frames_per_led, ref colors, reverse, ref op } => {
-                let progress = (frame / frames_per_led) % indices.len();
-                for mut i in 0..indices.len() {
-                    if reverse {
-                        i = indices.len() - 1 - i;
-                    }
-                    let led = indices[(progress + i) % indices.len()];
+            &Effect::Rotation {
+                duration,
+                ref colors,
+                reverse,
+                ref op,
+            } => {
+                let progress = if reverse {
+                    (duration - frame % duration) as f32 / duration as f32
+                } else {
+                    (frame % duration) as f32 / duration as f32
+                };
+                for i in 0..indices.len() {
+                    let led = indices[i % indices.len()];
 
-                    let x = (i as f32 / (indices.len() as f32 - 1.0)) * (colors.len() as f32);
+                    let x = (progress + (i as f32 / indices.len() as f32)).fract()
+                        * (colors.len() as f32 - 1.0);
                     let lower = (x.floor() as usize) % colors.len();
                     let upper = (x.ceil() as usize) % colors.len();
                     let color = colors[lower].blend(&colors[upper], &ColorOp::Blend(x.fract()));
+
+                    strip.colors[led] = strip.colors[led].blend(&color, op);
+                }
+            }
+            &Effect::Pattern {
+                frames_per_led,
+                ref colors,
+                reverse,
+                ref op,
+            } => {
+                let progress = if let Some(frames_per_led) = frames_per_led {
+                    (frame / frames_per_led) % colors.len()
+                } else {
+                    0
+                };
+                for i in 0..indices.len() {
+                    let led = if reverse {
+                        indices[i]
+                    } else {
+                        indices[indices.len() - 1 - i]
+                    };
+                    let color = &colors[(progress + i) % colors.len()];
 
                     strip.colors[led] = strip.colors[led].blend(&color, op);
                 }

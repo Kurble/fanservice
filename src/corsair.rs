@@ -326,15 +326,10 @@ impl Device for CorsairLighting {
         }
 
         for i in 0..self.fans.len() {
-            match &self.fan_modes[i] {
-                FanMode::Pwm | FanMode::Dc => {
-                    if current_sample == self.next_sample {
-                        self.rpms[i] = self.get_rpm(i)?;
-                    }
-                    current_sample += 1;
-                }
-                FanMode::Off => self.rpms[i] = 0,
+            if current_sample == self.next_sample {
+                self.rpms[i] = self.get_rpm(i)?;
             }
+            current_sample += 1;
         }
 
         if current_sample > 0 {

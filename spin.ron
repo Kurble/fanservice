@@ -1,0 +1,13 @@
+Pattern(
+    frames_per_led: Some(2),
+    colors: [
+        Rgb(1, 1, 1),
+        Rgb(0.6, 0.6, 0.6),
+        Rgb(0.3, 0.3, 0.3),
+        Rgb(0.1, 0.1, 0.1),
+        Rgb(0.1, 0.1, 0.1),
+        Rgb(0.1, 0.1, 0.1),
+    ],
+    reverse: false,
+    op: Blend(1)
+)
