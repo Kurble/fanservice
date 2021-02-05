@@ -1,6 +1,6 @@
 Temperature(
     min_color: Hsv(240, 0.9, 0.4),
-    max_color: Hsv(0, 1, 1),
+    max_color: Hsv(-60, 1, 1),
     min_temperature: 28.0,
     max_temperature: 34.0,
     sensor: 0,

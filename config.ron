@@ -10,9 +10,10 @@ Config (
                 (device: "Commander PRO", channel: 1, indices: Range(0, 12), effect: "temperature_overlay.ron"),
                 (device: "Lighting Node CORE", channel: 0, indices: Ranges([(10, 34), (44, 68), (78, 102)]), effect: "temperature_cool.ron"),
                 (device: "Lighting Node CORE", channel: 0, indices: Ranges([(0, 10), (34, 44), (68, 78)]), effect: "gray.ron"),
-                (device: "Lighting Node CORE", channel: 0, indices: Range(4, 10), effect: "spin.ron"),
-                (device: "Lighting Node CORE", channel: 0, indices: Range(38, 44), effect: "spin.ron"),
-                (device: "Lighting Node CORE", channel: 0, indices: Range(72, 78), effect: "spin.ron"),
+                (device: "Lighting Node CORE", channel: 0, indices: Ranges([(4, 10), (38, 44), (72, 78)]), effect: "temperature_cool.ron"),
+                (device: "Lighting Node CORE", channel: 0, indices: Range(4, 10), effect: "rotation3.ron"),
+                (device: "Lighting Node CORE", channel: 0, indices: Range(38, 44), effect: "rotation3.ron"),
+                (device: "Lighting Node CORE", channel: 0, indices: Range(72, 78), effect: "rotation3.ron"),
                 (device: "Lighting Node CORE", channel: 0, indices: Range(10, 22), effect: "rotation.ron"),
                 (device: "Lighting Node CORE", channel: 0, indices: Range(22, 34), effect: "rotation2.ron"),
                 (device: "Lighting Node CORE", channel: 0, indices: Range(44, 56), effect: "rotation.ron"),
@@ -31,11 +32,11 @@ Config (
                 (device: "Commander PRO", channel: 1, indices: Range(0, 12), effect: "warm_overlay.ron"),
                 (device: "Lighting Node CORE", channel: 0, indices: Ranges([(10, 34), (44, 68), (78, 102)]), effect: "temperature_warm.ron"),
                 (device: "Lighting Node CORE", channel: 0, indices: Range(0, 4), effect: "rainbow.ron"),
-                (device: "Lighting Node CORE", channel: 0, indices: Range(4, 10), effect: "rainbow.ron"),
+                (device: "Lighting Node CORE", channel: 0, indices: Range(4, 10), effect: "spin.ron"),
                 (device: "Lighting Node CORE", channel: 0, indices: Range(34, 38), effect: "rainbow.ron"),
-                (device: "Lighting Node CORE", channel: 0, indices: Range(38, 44), effect: "rainbow.ron"),
+                (device: "Lighting Node CORE", channel: 0, indices: Range(38, 44), effect: "spin.ron"),
                 (device: "Lighting Node CORE", channel: 0, indices: Range(68, 72), effect: "rainbow.ron"),
-                (device: "Lighting Node CORE", channel: 0, indices: Range(72, 78), effect: "rainbow.ron"),
+                (device: "Lighting Node CORE", channel: 0, indices: Range(72, 78), effect: "spin.ron"),
                 (device: "Lighting Node CORE", channel: 0, indices: Range(10, 22), effect: "rotation.ron"),
                 (device: "Lighting Node CORE", channel: 0, indices: Range(22, 34), effect: "rotation2.ron"),
                 (device: "Lighting Node CORE", channel: 0, indices: Range(44, 56), effect: "rotation.ron"),
@@ -52,7 +53,7 @@ Config (
                 SensorBelow(sensor: 0, temperature: 32.0)
             ],
             fans: [
-                (device: "Commander PRO", channel: 1, config: Pwm(0.20)), // case fans
+                (device: "Commander PRO", channel: 1, config: Pwm(0.3)), // case fans
                 (device: "Commander PRO", channel: 2, config: Pwm(0.25)), // pump
                 (device: "Commander PRO", channel: 3, config: Pwm(0.25)), // top rad fans
                 (device: "Commander PRO", channel: 4, config: Pwm(0)), // bottom rad fan 1
@@ -65,13 +66,16 @@ Config (
                 SensorAbove(sensor: 0, temperature: 34.0)
             ],
             fans: [
-                (device: "Commander PRO", channel: 1, config: Pwm(0.50)), // case fans
-                (device: "Commander PRO", channel: 2, config: Pwm(1.00)), // pump
+                // case fans
+                (device: "Commander PRO", channel: 1, config: Curve(0, ((temp: 28, rpm: 800), (temp: 33, rpm: 905), (temp: 40, rpm: 1250), (temp: 44, rpm: 1500), (temp: 52, rpm: 1500), (temp: 53, rpm: 1500)))),
+
+                // pump
+                (device: "Commander PRO", channel: 2, config: Pwm(1.00)),
 
                 // radiator fans
-                (device: "Commander PRO", channel: 3, config: Curve(0, ((temp: 28, rpm: 750), (temp: 33, rpm: 905), (temp: 40, rpm: 1120), (temp: 46, rpm: 1600), (temp: 52, rpm: 3000), (temp: 53, rpm: 3000)))),
-                (device: "Commander PRO", channel: 4, config: Curve(0, ((temp: 28, rpm: 750), (temp: 33, rpm: 905), (temp: 40, rpm: 1120), (temp: 46, rpm: 1600), (temp: 52, rpm: 3000), (temp: 53, rpm: 3000)))),
-                (device: "Commander PRO", channel: 5, config: Curve(0, ((temp: 28, rpm: 750), (temp: 33, rpm: 905), (temp: 40, rpm: 1120), (temp: 46, rpm: 1600), (temp: 52, rpm: 3000), (temp: 53, rpm: 3000)))),
+                (device: "Commander PRO", channel: 3, config: Curve(0, ((temp: 28, rpm: 750), (temp: 33, rpm: 905), (temp: 40, rpm: 1120), (temp: 44, rpm: 1600), (temp: 52, rpm: 3000), (temp: 53, rpm: 3000)))),
+                (device: "Commander PRO", channel: 4, config: Curve(0, ((temp: 28, rpm: 750), (temp: 33, rpm: 905), (temp: 40, rpm: 1120), (temp: 44, rpm: 1600), (temp: 52, rpm: 3000), (temp: 53, rpm: 3000)))),
+                (device: "Commander PRO", channel: 5, config: Curve(0, ((temp: 28, rpm: 750), (temp: 33, rpm: 905), (temp: 40, rpm: 1120), (temp: 44, rpm: 1600), (temp: 52, rpm: 3000), (temp: 53, rpm: 3000)))),
             ]
         )
     ],
